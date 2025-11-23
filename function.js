@@ -9,43 +9,15 @@ window.function = function (jsonInput, unwrapDepth) {
   // Pulizia
   rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // ID univoco per evitare conflitti di stile se usi più plugin nella stessa pagina
-  var uid = "t" + Math.random().toString(36).substr(2, 5);
-
-  // --- CSS AVANZATO (Magic Toggle) ---
-  var styles = `
-    <style>
-      .${uid}-table { width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 13px; border: 1px solid #dfe2e5; table-layout: auto; }
-      .${uid}-th { background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px 8px; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap; }
-      .${uid}-td { border: 1px solid #dfe2e5; padding: 8px; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; min-width: 50px; }
-      
-      /* Stile del bottone Summary */
-      .${uid}-summary {
-        cursor: pointer;
-        color: #0366d6;
-        font-weight: 500;
-        outline: none;
-        list-style: none; /* Nasconde il triangolo di default (Firefox/Standard) */
-      }
-      .${uid}-summary::-webkit-details-marker {
-        display: none; /* Nasconde il triangolo di default (Chrome/Safari) */
-      }
-
-      /* MAGIA: Testo quando CHIUSO */
-      .${uid}-summary::after {
-        content: "▶ Mostra " attr(data-label);
-      }
-
-      /* MAGIA: Testo quando APERTO */
-      details[open] > .${uid}-summary::after {
-        content: "▼ Nascondi " attr(data-label);
-        color: #24292e; /* Diventa nero quando aperto per meno distrazione */
-      }
-    </style>
-  `;
-
-  var cssNull = "color: #a0a0a0; font-style: italic;"; 
-  var cssBool = "color: #005cc5; font-weight: bold;";
+  // --- STILI CSS INLINE (Definiti come stringhe per riutilizzarli) ---
+  var s = {
+      table: "width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 13px; border: 1px solid #dfe2e5; table-layout: auto;",
+      th: "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px 8px; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap;",
+      td: "border: 1px solid #dfe2e5; padding: 8px; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; min-width: 50px;",
+      summary: "cursor: pointer; color: #0366d6; font-weight: 600; outline: none; padding: 4px 0;",
+      nullVal: "color: #a0a0a0; font-style: italic;",
+      bool: "color: #005cc5; font-weight: bold;"
+  };
 
   function formatHeader(key) {
     if (!key) return "";
@@ -81,17 +53,17 @@ window.function = function (jsonInput, unwrapDepth) {
 
     // --- RENDERER ---
     function buildTable(obj, isRoot) {
-      if (obj === null || obj === undefined) return '<span style="' + cssNull + '">null</span>';
+      if (obj === null || obj === undefined) return '<span style="' + s.nullVal + '">null</span>';
       
       if (typeof obj !== 'object') {
-         if (typeof obj === 'boolean') return '<span style="' + cssBool + '">' + obj + '</span>';
+         if (typeof obj === 'boolean') return '<span style="' + s.bool + '">' + obj + '</span>';
          return String(obj);
       }
 
       // Preparazione Contenuto
       var contentHtml = "";
-      // Calcoliamo l'etichetta (es: "3 items") da passare al CSS
-      var labelInfo = Array.isArray(obj) ? "(" + obj.length + " righe)" : "(" + Object.keys(obj).length + " campi)";
+      // Etichetta informativa (es: "3 righe")
+      var infoLabel = Array.isArray(obj) ? obj.length + " righe" : Object.keys(obj).length + " campi";
 
       if (Array.isArray(obj)) {
         if (obj.length === 0) return "[]";
@@ -105,24 +77,24 @@ window.function = function (jsonInput, unwrapDepth) {
                     if (keys.indexOf(rowKeys[k]) === -1) keys.push(rowKeys[k]);
                 }
             }
-            contentHtml += `<table class="${uid}-table"><thead><tr>`;
+            contentHtml += `<table style="${s.table}"><thead><tr>`;
             for (var h = 0; h < keys.length; h++) {
-                contentHtml += `<th class="${uid}-th">${formatHeader(keys[h])}</th>`;
+                contentHtml += `<th style="${s.th}">${formatHeader(keys[h])}</th>`;
             }
             contentHtml += '</tr></thead><tbody>';
             for (var r = 0; r < obj.length; r++) {
                 var bg = (r % 2 === 0) ? "#fff" : "#f9f9f9"; 
                 contentHtml += `<tr style="background-color:${bg}">`;
                 for (var c = 0; c < keys.length; c++) {
-                    contentHtml += `<td class="${uid}-td">${buildTable(obj[r][keys[c]], false)}</td>`;
+                    contentHtml += `<td style="${s.td}">${buildTable(obj[r][keys[c]], false)}</td>`;
                 }
                 contentHtml += '</tr>';
             }
             contentHtml += '</tbody></table>';
         } else {
-            contentHtml += `<table class="${uid}-table"><tbody>`;
+            contentHtml += `<table style="${s.table}"><tbody>`;
             for (var i = 0; i < obj.length; i++) {
-                contentHtml += `<tr><td class="${uid}-td">${buildTable(obj[i], false)}</td></tr>`;
+                contentHtml += `<tr><td style="${s.td}">${buildTable(obj[i], false)}</td></tr>`;
             }
             contentHtml += '</tbody></table>';
         }
@@ -130,11 +102,11 @@ window.function = function (jsonInput, unwrapDepth) {
       else {
           var keys = Object.keys(obj);
           if (keys.length === 0) return "{}";
-          contentHtml += `<table class="${uid}-table"><tbody>`;
+          contentHtml += `<table style="${s.table}"><tbody>`;
           for (var k = 0; k < keys.length; k++) {
               contentHtml += '<tr>';
-              contentHtml += `<th class="${uid}-th" style="width: 30%; white-space: normal;">${formatHeader(keys[k])}</th>`;
-              contentHtml += `<td class="${uid}-td">${buildTable(obj[keys[k]], false)}</td>`;
+              contentHtml += `<th style="${s.th} width: 30%; white-space: normal;">${formatHeader(keys[k])}</th>`;
+              contentHtml += `<td style="${s.td}">${buildTable(obj[keys[k]], false)}</td>`;
               contentHtml += '</tr>';
           }
           contentHtml += '</tbody></table>';
@@ -144,19 +116,23 @@ window.function = function (jsonInput, unwrapDepth) {
       if (isRoot) {
           return contentHtml;
       } else {
-          // NOTA: Il tag <summary> è VUOTO. Il testo viene inserito dal CSS (::after)
-          // usando il valore dentro data-label.
+          // INTERATTIVITÀ NATIVA (Senza CSS Blocks)
+          // <summary> visualizza automaticamente un triangolo ▶
+          // Aggiungiamo un testo statico chiaro.
           return `
             <details>
-                <summary class="${uid}-summary" data-label="${labelInfo}"></summary>
-                <div style="margin-top: 8px;">${contentHtml}</div>
+                <summary style="${s.summary}">
+                   Apri / Chiudi <span style="color:#666; font-weight:normal;">(${infoLabel})</span>
+                </summary>
+                <div style="margin-top: 8px; margin-left: 5px; border-left: 2px solid #eee; padding-left: 5px;">
+                    ${contentHtml}
+                </div>
             </details>
           `;
       }
     }
 
-    // Uniamo Stili + HTML
-    return styles + '<div style="overflow-x:auto;">' + buildTable(data, true) + '</div>';
+    return '<div style="overflow-x:auto;">' + buildTable(data, true) + '</div>';
 
   } catch (e) {
     return '<div style="color:red; border:1px solid red; padding:10px;">Invalid JSON: ' + e.message + '</div>';
