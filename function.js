@@ -1,78 +1,126 @@
 window.function = function (jsonInput) {
-  // 1. Recuperiamo il valore
-  jsonInput = jsonInput?.value ?? "";
+  // 1. Pulizia Input
+  let rawInput = jsonInput?.value ?? "";
 
-  // 2. Controllo base: se è vuoto, non mostriamo nulla
-  if (jsonInput.trim() === "") return "";
+  // Rimuoviamo eventuali formattazioni Markdown che le AI mettono spesso (```json ... ```)
+  rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
+
+  if (!rawInput) return "";
 
   try {
-    // 3. Convertiamo il testo in un oggetto JavaScript reale
-    let data = JSON.parse(jsonInput);
+    let data = JSON.parse(rawInput);
 
-    // Se il JSON è un singolo oggetto, lo trasformiamo in una lista di un solo elemento
-    // per poter usare sempre la stessa logica
-    if (!Array.isArray(data)) {
-      data = [data];
+    // Funzione helper per formattare valori complessi (oggetti dentro celle)
+    const formatValue = (val) => {
+      if (val === null || val === undefined) return "";
+      if (typeof val === "object") {
+        // Se è un array o oggetto, lo rendiamo una lista HTML pulita invece di JSON grezzo
+        try {
+            // Se è una lista semplice
+            if (Array.isArray(val)) {
+                return `<ul style="margin: 0; padding-left: 20px;">${val.map(v => `<li>${formatValue(v)}</li>`).join('')}</ul>`;
+            }
+            // Se è un oggetto
+            return `<div style="font-size: 0.9em; color: #555;">${Object.entries(val).map(([k, v]) => `<strong>${k}:</strong> ${v}`).join('<br>')}</div>`;
+        } catch (e) {
+            return JSON.stringify(val);
+        }
+      }
+      return val; // Restituisce testo o numeri così come sono
+    };
+
+    // STILI CSS (per rendere tutto leggibile)
+    const tableStyle = `width:100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px; border: 1px solid #ddd;`;
+    const thStyle = `background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; text-align: left; font-weight: bold; color: #333;`;
+    const tdStyle = `border: 1px solid #ddd; padding: 10px; vertical-align: top; color: #444;`;
+
+    let html = `<div style="overflow-x:auto;">`;
+
+    // --- CASO A: È UN ARRAY (Lista di cose) ---
+    // Esempio: [{"nome": "A"}, {"nome": "B"}]
+    if (Array.isArray(data) && data.length > 0) {
+      
+      // Raccogliamo TUTTE le chiavi possibili da tutti gli oggetti (non solo dal primo)
+      // Questo evita che manchino colonne se il primo oggetto è incompleto
+      let allKeys = new Set();
+      data.forEach(item => {
+          if (typeof item === 'object' && item !== null) {
+              Object.keys(item).forEach(k => allKeys.add(k));
+          }
+      });
+      const headers = Array.from(allKeys);
+
+      html += `<table style="${tableStyle}"><thead><tr>`;
+      
+      // Intestazioni
+      if (headers.length > 0) {
+          headers.forEach(h => {
+            html += `<th style="${thStyle}">${h.charAt(0).toUpperCase() + h.slice(1)}</th>`;
+          });
+      } else {
+          // Caso lista semplice di stringhe ["mela", "pera"]
+          html += `<th style="${thStyle}">Valore</th>`;
+      }
+      
+      html += `</tr></thead><tbody>`;
+
+      // Righe
+      data.forEach((row, i) => {
+        const bg = i % 2 === 0 ? "#fff" : "#f9f9f9";
+        html += `<tr style="background-color: ${bg};">`;
+        
+        if (headers.length > 0) {
+            headers.forEach(header => {
+              // Qui usiamo formatValue per evitare il "blob" di JSON
+              let val = row[header];
+              html += `<td style="${tdStyle}">${formatValue(val)}</td>`;
+            });
+        } else {
+             html += `<td style="${tdStyle}">${formatValue(row)}</td>`;
+        }
+        html += `</tr>`;
+      });
+
+      html += `</tbody></table>`;
+
+    } 
+    // --- CASO B: È UN OGGETTO SINGOLO (Dettaglio) ---
+    // Esempio: {"status": "ok", "data": {...}}
+    // Invece di schiacciarlo, facciamo una tabella VERTICALE (Chiave | Valore)
+    else if (typeof data === "object" && data !== null) {
+      
+      html += `<table style="${tableStyle}">
+        <thead>
+            <tr>
+                <th style="${thStyle} width: 30%;">Proprietà</th>
+                <th style="${thStyle}">Dettaglio</th>
+            </tr>
+        </thead>
+        <tbody>`;
+      
+      let i = 0;
+      for (const [key, value] of Object.entries(data)) {
+        const bg = i % 2 === 0 ? "#fff" : "#f9f9f9";
+        html += `<tr style="background-color: ${bg};">
+            <td style="${tdStyle}"><strong>${key}</strong></td>
+            <td style="${tdStyle}">${formatValue(value)}</td>
+        </tr>`;
+        i++;
+      }
+
+      html += `</tbody></table>`;
+    } 
+    // --- CASO C: ALTRO ---
+    else {
+        return rawInput; // Se è solo testo, lo restituiamo così com'è
     }
 
-    if (data.length === 0) return "Nessun dato trovato nel JSON.";
-
-    // 4. Prendiamo le chiavi del primo oggetto per fare le intestazioni (Header)
-    const headers = Object.keys(data[0]);
-
-    // 5. Iniziamo a costruire la stringa HTML
-    // Aggiungo un po' di CSS inline per renderla carina
-    let html = `
-      <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px;">
-          <thead>
-            <tr style="background-color: #f2f2f2; text-align: left;">
-    `;
-
-    // Creiamo le intestazioni (TH)
-    headers.forEach(header => {
-      // Mettiamo la prima lettera maiuscola per estetica
-      const label = header.charAt(0).toUpperCase() + header.slice(1);
-      html += `<th style="padding: 10px; border-bottom: 2px solid #ddd; color: #333;">${label}</th>`;
-    });
-
-    html += `
-            </tr>
-          </thead>
-          <tbody>
-    `;
-
-    // 6. Creiamo le righe (TR e TD)
-    data.forEach((row, index) => {
-      // Alterniamo il colore di sfondo per le righe (bianco / grigio chiaro)
-      const bg = index % 2 === 0 ? "transparent" : "#f9f9f9";
-      html += `<tr style="background-color: ${bg}; border-bottom: 1px solid #ddd;">`;
-      
-      headers.forEach(header => {
-        let cellValue = row[header];
-        
-        // Se il valore è un oggetto o array (es. annidato), lo rendiamo leggibile
-        if (typeof cellValue === 'object' && cellValue !== null) {
-            cellValue = JSON.stringify(cellValue);
-        }
-        
-        html += `<td style="padding: 10px; color: #555;">${cellValue}</td>`;
-      });
-      
-      html += `</tr>`;
-    });
-
-    // 7. Chiudiamo la tabella
-    html += `
-          </tbody>
-        </table>
-      </div>
-    `;
-
+    html += `</div>`;
     return html;
 
   } catch (error) {
-    // Se il JSON non è valido, restituiamo un errore leggibile
-    return `<div style="color: red; padding: 10px; border: 1px solid red;">Errore JSON: ${error.message}</div>`;
+    return `<div style="color:red; padding:10px; border:1px solid red; background:#fff0f0;">
+      <strong>Errore lettura dati:</strong><br>${error.message}
+    </div>`;
   }
 };
