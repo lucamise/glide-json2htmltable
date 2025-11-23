@@ -1,8 +1,6 @@
 window.function = function (jsonInput, unwrapDepth) {
   // 1. Lettura Input
   var rawInput = jsonInput ? jsonInput.value : "";
-  
-  // Leggiamo quanti livelli saltare (Default 0)
   var levelsToSkip = unwrapDepth ? parseInt(unwrapDepth.value) : 0;
   if (isNaN(levelsToSkip)) levelsToSkip = 0;
 
@@ -11,13 +9,17 @@ window.function = function (jsonInput, unwrapDepth) {
   // Pulizia Markdown
   rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // STILI CSS (Fit-content + Text wrap + No Overflow)
+  // --- STILI CSS ---
+  // Aggiungiamo stili per il tag <details> e <summary>
   var cssTable = "width: 100%; border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; border: 1px solid #dfe2e5; table-layout: auto;";
   var cssTh = "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px 8px; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap;";
   var cssTd = "border: 1px solid #dfe2e5; padding: 8px; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; min-width: 50px;";
   var cssNull = "color: #a0a0a0; font-style: italic;"; 
   var cssBool = "color: #005cc5; font-weight: bold;";
 
+  // Stile per il bottone cliccabile
+  var cssSummary = "cursor: pointer; color: #0366d6; font-weight: 500; outline: none; list-style: none;"; // list-style: none nasconde il triangolo default su alcuni browser
+  
   function formatHeader(key) {
     if (!key) return "";
     var clean = key.replace(/[_-]/g, " ");
@@ -27,59 +29,48 @@ window.function = function (jsonInput, unwrapDepth) {
   try {
     var data = JSON.parse(rawInput);
 
-    // --- LOGICA DI SBUSTAMENTO MANUALE (MANUAL UNWRAP) ---
-    // Scendiamo di livello esattamente quante volte richiesto dall'utente
+    // --- LOGICA DI SBUSTAMENTO (UNWRAP) ---
     var currentLevel = 0;
     while (currentLevel < levelsToSkip && data && typeof data === 'object') {
-        
-        // Se siamo finiti su un array, di solito non si scende oltre (a meno che non sia array di array)
-        // Ma se è un oggetto, dobbiamo scegliere in quale chiave entrare.
         if (!Array.isArray(data)) {
             var keys = Object.keys(data);
-            if (keys.length === 0) break; // Vicolo cieco
-
-            var targetKey = keys[0]; // Default: prendiamo la prima chiave
-
+            if (keys.length === 0) break;
+            var targetKey = keys[0];
             if (keys.length > 1) {
-                // Se ci sono più chiavi, cerchiamo quella più "interessante"
-                // 1. Cerchiamo se c'è una chiave che contiene una LISTA (Array)
                 var arrayKey = keys.find(function(k) { return Array.isArray(data[k]); });
-                
-                if (arrayKey) {
-                    targetKey = arrayKey;
-                } else {
-                    // 2. Altrimenti cerchiamo una chiave che sia un OGGETTO
+                if (arrayKey) targetKey = arrayKey;
+                else {
                     var objectKey = keys.find(function(k) { return typeof data[k] === 'object' && data[k] !== null; });
                     if (objectKey) targetKey = objectKey;
                 }
             }
-            // Entriamo nel livello successivo
             data = data[targetKey];
         } else {
-             // Se è un array e ci chiedono di saltare ancora livelli, proviamo a prendere il primo elemento
-             // Esempio: [[...]] -> saltiamo il guscio esterno
-             if (data.length > 0) {
-                 data = data[0];
-             } else {
-                 break;
-             }
+             if (data.length > 0) data = data[0];
+             else break;
         }
         currentLevel++;
     }
 
     // --- RENDERER ---
-    function buildTable(obj) {
+    // isRoot serve per capire se siamo alla tabella principale (che non va nascosta)
+    function buildTable(obj, isRoot) {
       if (obj === null || obj === undefined) return '<span style="' + cssNull + '">null</span>';
       
+      // Primitivi
       if (typeof obj !== 'object') {
          if (typeof obj === 'boolean') return '<span style="' + cssBool + '">' + obj + '</span>';
          return String(obj);
       }
 
-      // CASO ARRAY
+      // Se è un oggetto complesso e NON siamo alla radice, prepariamo il wrapper <details>
+      // Ma prima dobbiamo generare il contenuto HTML interno
+      var contentHtml = "";
+      var itemCount = Array.isArray(obj) ? obj.length + " items" : Object.keys(obj).length + " campi";
+
+      // --- LOGICA GENERAZIONE TABELLA (uguale a prima) ---
       if (Array.isArray(obj)) {
         if (obj.length === 0) return "[]";
-        
         var isListOfObjects = typeof obj[0] === 'object' && obj[0] !== null;
 
         if (isListOfObjects) {
@@ -91,53 +82,61 @@ window.function = function (jsonInput, unwrapDepth) {
                     if (keys.indexOf(rowKeys[k]) === -1) keys.push(rowKeys[k]);
                 }
             }
-
-            var html = '<table style="' + cssTable + '"><thead><tr>';
+            contentHtml += '<table style="' + cssTable + '"><thead><tr>';
             for (var h = 0; h < keys.length; h++) {
-                html += '<th style="' + cssTh + '">' + formatHeader(keys[h]) + '</th>';
+                contentHtml += '<th style="' + cssTh + '">' + formatHeader(keys[h]) + '</th>';
             }
-            html += '</tr></thead><tbody>';
-
+            contentHtml += '</tr></thead><tbody>';
             for (var r = 0; r < obj.length; r++) {
                 var bg = (r % 2 === 0) ? "#fff" : "#f9f9f9"; 
-                html += '<tr style="background-color:' + bg + '">';
+                contentHtml += '<tr style="background-color:' + bg + '">';
                 for (var c = 0; c < keys.length; c++) {
-                    var key = keys[c];
-                    var val = obj[r][key];
-                    html += '<td style="' + cssTd + '">' + buildTable(val) + '</td>';
+                    contentHtml += '<td style="' + cssTd + '">' + buildTable(obj[r][keys[c]], false) + '</td>';
                 }
-                html += '</tr>';
+                contentHtml += '</tr>';
             }
-            html += '</tbody></table>';
-            return html;
+            contentHtml += '</tbody></table>';
         } else {
-            var listHtml = '<table style="' + cssTable + '"><tbody>';
+            // Lista semplice
+            contentHtml += '<table style="' + cssTable + '"><tbody>';
             for (var i = 0; i < obj.length; i++) {
-                listHtml += '<tr><td style="' + cssTd + '">' + buildTable(obj[i]) + '</td></tr>';
+                contentHtml += '<tr><td style="' + cssTd + '">' + buildTable(obj[i], false) + '</td></tr>';
             }
-            listHtml += '</tbody></table>';
-            return listHtml;
+            contentHtml += '</tbody></table>';
         }
+      } 
+      // Oggetto Singolo
+      else {
+          var keys = Object.keys(obj);
+          if (keys.length === 0) return "{}";
+          contentHtml += '<table style="' + cssTable + '"><tbody>';
+          for (var k = 0; k < keys.length; k++) {
+              contentHtml += '<tr>';
+              contentHtml += '<th style="' + cssTh + ' width: 30%; white-space: normal;">' + formatHeader(keys[k]) + '</th>';
+              contentHtml += '<td style="' + cssTd + '">' + buildTable(obj[keys[k]], false) + '</td>';
+              contentHtml += '</tr>';
+          }
+          contentHtml += '</tbody></table>';
       }
 
-      // CASO OGGETTO SINGOLO
-      var keys = Object.keys(obj);
-      if (keys.length === 0) return "{}";
-
-      var objHtml = '<table style="' + cssTable + '"><tbody>';
-      for (var k = 0; k < keys.length; k++) {
-          var keyName = keys[k];
-          var value = obj[keyName];
-          objHtml += '<tr>';
-          objHtml += '<th style="' + cssTh + ' width: 30%; white-space: normal;">' + formatHeader(keyName) + '</th>';
-          objHtml += '<td style="' + cssTd + '">' + buildTable(value) + '</td>';
-          objHtml += '</tr>';
+      // --- QUI AGGIUNGIAMO L'INTERATTIVITÀ ---
+      // Se è la tabella principale (isRoot = true), restituiamo tutto aperto.
+      // Se è una sotto-tabella (isRoot = false), la chiudiamo dentro <details>.
+      if (isRoot) {
+          return contentHtml;
+      } else {
+          // Usiamo un'emoji o un testo per far capire che è cliccabile
+          // summary è l'unica cosa visibile finché non clicchi
+          return `
+            <details>
+                <summary style="${cssSummary}">▶ Mostra (${itemCount})</summary>
+                <div style="margin-top: 5px;">${contentHtml}</div>
+            </details>
+          `;
       }
-      objHtml += '</tbody></table>';
-      return objHtml;
     }
 
-    return '<div style="overflow-x:auto;">' + buildTable(data) + '</div>';
+    return '<div style="overflow-x:auto;">' + buildTable(data, true) + '</div>';
 
   } catch (e) {
     return '<div style="color:red; border:1px solid red; padding:10px;">Invalid JSON: ' + e.message + '</div>';
