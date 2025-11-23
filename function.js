@@ -1,36 +1,34 @@
 window.function = function (jsonInput, screenSize) {
   // 1. Lettura Input
   var rawInput = jsonInput ? jsonInput.value : "";
-  
-  // Leggiamo la dimensione ("small", "medium", "large")
   var sizeVal = screenSize ? screenSize.value : "";
-  // Normalizziamo in minuscolo per evitare errori (es. "Small" -> "small")
   sizeVal = sizeVal.toLowerCase().trim();
 
   if (!rawInput) return "";
 
-  // Pulizia input JSON
+  // Pulizia input
   rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // --- LOGICA RESPONSIVE ---
-  // Attiviamo la modalità mobile solo se Glide dice che lo schermo è "small"
+  // Logica Responsive
   var isMobile = (sizeVal === "small" || sizeVal === "mobile");
 
-  // --- STILI INLINE ---
+  // --- STILI INLINE (Aggiornati per struttura rigida) ---
   var s = {
     // Container
     container: "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; color: #333;",
     
-    // Desktop (Tabella)
+    // DESKTOP (Grande tabella unica)
     table: "width:100%; border-collapse: collapse; border: 1px solid #dfe2e5;",
     th: "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px; font-weight: 600; text-align: left; white-space: nowrap;",
     td: "border: 1px solid #dfe2e5; padding: 10px; vertical-align: top;",
     
-    // Mobile (Cards)
-    card: "border: 1px solid #e1e4e8; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.05);",
-    cardRow: "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; padding: 8px 0;",
-    cardLabel: "font-weight: 600; color: #666; font-size: 0.85em; text-transform: uppercase; margin-right: 15px;",
-    cardVal: "text-align: right; word-break: break-word; flex: 1;", // flex:1 spinge il testo a occupare lo spazio
+    // MOBILE (Card Container)
+    card: "border: 1px solid #e1e4e8; border-radius: 8px; margin-bottom: 12px; background: #fff; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05);",
+    
+    // MOBILE (Tabella interna alla Card - GARANTISCE 2 COLONNE)
+    cardTable: "width: 100%; border-collapse: collapse;",
+    cardTdLabel: "width: 35%; background-color: #f9f9f9; padding: 10px; font-weight: 600; color: #555; border-bottom: 1px solid #eee; vertical-align: top; font-size: 0.9em; text-transform: uppercase;",
+    cardTdValue: "padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; color: #333;",
     
     // Utilities
     boolTrue: "color: #2ea043; font-weight: bold;",
@@ -38,7 +36,6 @@ window.function = function (jsonInput, screenSize) {
     nullVal: "color: #ccc; font-style: italic;"
   };
 
-  // Formatter Header (es. customer_id -> Customer id)
   function formatHeader(key) {
     if (!key) return "";
     var clean = key.replace(/[_-]/g, " ");
@@ -48,7 +45,7 @@ window.function = function (jsonInput, screenSize) {
   try {
     var data = JSON.parse(rawInput);
 
-    // --- RENDERER DEI VALORI (Ricorsivo) ---
+    // --- RENDERER DEI VALORI ---
     function renderValue(val) {
       if (val === null || val === undefined) return `<span style="${s.nullVal}">null</span>`;
       if (typeof val === 'boolean') return `<span style="${val ? s.boolTrue : s.boolFalse}">${val}</span>`;
@@ -56,10 +53,8 @@ window.function = function (jsonInput, screenSize) {
       if (typeof val === 'object') {
         if (Array.isArray(val)) {
             if (val.length === 0) return "[]";
-            // Liste annidate: piccolo elenco puntato
             return `<ul style="margin:0; padding-left:15px; text-align:left;">${val.map(v => `<li>${renderValue(v)}</li>`).join('')}</ul>`;
         }
-        // Oggetti annidati: key-value compatti
         return Object.keys(val).map(k => `<div><strong>${k}:</strong> ${renderValue(val[k])}</div>`).join('');
       }
       return String(val);
@@ -73,7 +68,7 @@ window.function = function (jsonInput, screenSize) {
       var isListOfObjects = typeof data[0] === 'object' && data[0] !== null;
 
       if (isListOfObjects) {
-        // Troviamo tutte le colonne (Header Union)
+        // Troviamo tutte le colonne
         var keys = [];
         for (var i = 0; i < data.length; i++) {
             var rowKeys = Object.keys(data[i]);
@@ -82,23 +77,29 @@ window.function = function (jsonInput, screenSize) {
             }
         }
 
-        // --- RAMO MOBILE (Cards) ---
+        // --- RAMO MOBILE (Cards con Tabella Interna) ---
         if (isMobile) {
             for (var r = 0; r < data.length; r++) {
                 html += `<div style="${s.card}">`;
+                // Qui creiamo una tabella PER OGNI CARTA per forzare il layout a 2 colonne
+                html += `<table style="${s.cardTable}"><tbody>`;
+                
                 for (var c = 0; c < keys.length; c++) {
                     var key = keys[c];
                     var val = data[r][key];
-                    // Card Row: Label a sinistra | Valore a destra
-                    html += `<div style="${s.cardRow}">`;
-                    html += `<div style="${s.cardLabel}">${formatHeader(key)}</div>`;
-                    html += `<div style="${s.cardVal}">${renderValue(val)}</div>`;
-                    html += `</div>`;
+                    
+                    // Riga della carta: Cella SX (Label) | Cella DX (Valore)
+                    html += `<tr>`;
+                    html += `<td style="${s.cardTdLabel}">${formatHeader(key)}</td>`;
+                    html += `<td style="${s.cardTdValue}">${renderValue(val)}</td>`;
+                    html += `</tr>`;
                 }
+                
+                html += `</tbody></table>`;
                 html += `</div>`;
             }
         } 
-        // --- RAMO DESKTOP (Table) ---
+        // --- RAMO DESKTOP (Tabella Classica) ---
         else {
             html += `<div style="overflow-x:auto;"><table style="${s.table}"><thead><tr>`;
             for (var h = 0; h < keys.length; h++) {
@@ -117,18 +118,17 @@ window.function = function (jsonInput, screenSize) {
             html += `</tbody></table></div>`;
         }
       } else {
-        // Lista semplice (stringhe/numeri)
+        // Lista semplice
         html += `<ul style="padding-left:20px;">${data.map(d => `<li>${renderValue(d)}</li>`).join('')}</ul>`;
       }
     } 
     // --- GESTIONE OGGETTO SINGOLO ---
     else if (typeof data === 'object') {
-       // Per un oggetto singolo, usiamo una tabella verticale semplice
-       // Su mobile togliamo solo i bordi esterni se necessario, ma la struttura regge bene
        var k = Object.keys(data);
        html += `<table style="${s.table}"><tbody>`;
        for(var i=0; i<k.length; i++) {
-           html += `<tr><th style="${s.th} width:30%;">${formatHeader(k[i])}</th><td style="${s.td}">${renderValue(data[k[i]])}</td></tr>`;
+           // Tabella verticale fissa
+           html += `<tr><th style="${s.th} width:35%;">${formatHeader(k[i])}</th><td style="${s.td}">${renderValue(data[k[i]])}</td></tr>`;
        }
        html += `</tbody></table>`;
     } else {
