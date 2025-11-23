@@ -1,126 +1,149 @@
 window.function = function (jsonInput) {
-  // 1. Pulizia Input
-  let rawInput = jsonInput?.value ?? "";
+  // 1. Recupero e Pulizia Input
+  // Se l'input è nullo, usiamo stringa vuota
+  var rawInput = jsonInput ? jsonInput.value : "";
+  
+  if (!rawInput) return ""; // Se vuoto, esce subito
 
-  // Rimuoviamo eventuali formattazioni Markdown che le AI mettono spesso (```json ... ```)
+  // Pulizia da eventuale markdown (```json ... ```) che a volte le AI lasciano
   rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  if (!rawInput) return "";
+  // Variabile che conterrà TUTTA la stringa HTML finale
+  var finalHtml = "";
 
   try {
-    let data = JSON.parse(rawInput);
+    var data = JSON.parse(rawInput);
 
-    // Funzione helper per formattare valori complessi (oggetti dentro celle)
-    const formatValue = (val) => {
-      if (val === null || val === undefined) return "";
+    // --- FUNZIONE INTERNA: CONVERTE VALORI IN STRINGA HTML STATICA ---
+    // Questa funzione viene eseguita ADESSO. Non finisce nell'HTML.
+    // Il suo scopo è trasformare un oggetto complesso in una stringa semplice tipo "<b>Nome:</b> Mario<br>"
+    function makeStaticString(val) {
+      if (val === null || val === undefined) {
+        return "";
+      }
+      
+      // Se il valore è un Oggetto o una Lista, dobbiamo "stamparlo" come testo formattato
       if (typeof val === "object") {
-        // Se è un array o oggetto, lo rendiamo una lista HTML pulita invece di JSON grezzo
         try {
-            // Se è una lista semplice
-            if (Array.isArray(val)) {
-                return `<ul style="margin: 0; padding-left: 20px;">${val.map(v => `<li>${formatValue(v)}</li>`).join('')}</ul>`;
+          // Se è una lista
+          if (Array.isArray(val)) {
+            var listHtml = '<ul style="margin: 0; padding-left: 15px;">';
+            for (var i = 0; i < val.length; i++) {
+              // Ricorsione: se nella lista c'è un altro oggetto, lo risolviamo subito
+              listHtml += '<li>' + makeStaticString(val[i]) + '</li>';
             }
-            // Se è un oggetto
-            return `<div style="font-size: 0.9em; color: #555;">${Object.entries(val).map(([k, v]) => `<strong>${k}:</strong> ${v}`).join('<br>')}</div>`;
-        } catch (e) {
-            return JSON.stringify(val);
-        }
-      }
-      return val; // Restituisce testo o numeri così come sono
-    };
-
-    // STILI CSS (per rendere tutto leggibile)
-    const tableStyle = `width:100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px; border: 1px solid #ddd;`;
-    const thStyle = `background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; text-align: left; font-weight: bold; color: #333;`;
-    const tdStyle = `border: 1px solid #ddd; padding: 10px; vertical-align: top; color: #444;`;
-
-    let html = `<div style="overflow-x:auto;">`;
-
-    // --- CASO A: È UN ARRAY (Lista di cose) ---
-    // Esempio: [{"nome": "A"}, {"nome": "B"}]
-    if (Array.isArray(data) && data.length > 0) {
-      
-      // Raccogliamo TUTTE le chiavi possibili da tutti gli oggetti (non solo dal primo)
-      // Questo evita che manchino colonne se il primo oggetto è incompleto
-      let allKeys = new Set();
-      data.forEach(item => {
-          if (typeof item === 'object' && item !== null) {
-              Object.keys(item).forEach(k => allKeys.add(k));
+            listHtml += '</ul>';
+            return listHtml;
+          } 
+          
+          // Se è un oggetto singolo (chiave: valore)
+          var objKeys = Object.keys(val);
+          var objHtml = '<div style="font-size: 0.9em; color: #555;">';
+          for (var j = 0; j < objKeys.length; j++) {
+            var k = objKeys[j];
+            var v = val[k];
+            // Creiamo una riga statica "Chiave: Valore"
+            objHtml += '<div><strong>' + k + ':</strong> ' + makeStaticString(v) + '</div>';
           }
-      });
-      const headers = Array.from(allKeys);
+          objHtml += '</div>';
+          return objHtml;
 
-      html += `<table style="${tableStyle}"><thead><tr>`;
-      
-      // Intestazioni
-      if (headers.length > 0) {
-          headers.forEach(h => {
-            html += `<th style="${thStyle}">${h.charAt(0).toUpperCase() + h.slice(1)}</th>`;
-          });
-      } else {
-          // Caso lista semplice di stringhe ["mela", "pera"]
-          html += `<th style="${thStyle}">Valore</th>`;
-      }
-      
-      html += `</tr></thead><tbody>`;
-
-      // Righe
-      data.forEach((row, i) => {
-        const bg = i % 2 === 0 ? "#fff" : "#f9f9f9";
-        html += `<tr style="background-color: ${bg};">`;
-        
-        if (headers.length > 0) {
-            headers.forEach(header => {
-              // Qui usiamo formatValue per evitare il "blob" di JSON
-              let val = row[header];
-              html += `<td style="${tdStyle}">${formatValue(val)}</td>`;
-            });
-        } else {
-             html += `<td style="${tdStyle}">${formatValue(row)}</td>`;
+        } catch (e) {
+          return JSON.stringify(val); // Fallback in caso di errore
         }
-        html += `</tr>`;
-      });
-
-      html += `</tbody></table>`;
-
-    } 
-    // --- CASO B: È UN OGGETTO SINGOLO (Dettaglio) ---
-    // Esempio: {"status": "ok", "data": {...}}
-    // Invece di schiacciarlo, facciamo una tabella VERTICALE (Chiave | Valore)
-    else if (typeof data === "object" && data !== null) {
-      
-      html += `<table style="${tableStyle}">
-        <thead>
-            <tr>
-                <th style="${thStyle} width: 30%;">Proprietà</th>
-                <th style="${thStyle}">Dettaglio</th>
-            </tr>
-        </thead>
-        <tbody>`;
-      
-      let i = 0;
-      for (const [key, value] of Object.entries(data)) {
-        const bg = i % 2 === 0 ? "#fff" : "#f9f9f9";
-        html += `<tr style="background-color: ${bg};">
-            <td style="${tdStyle}"><strong>${key}</strong></td>
-            <td style="${tdStyle}">${formatValue(value)}</td>
-        </tr>`;
-        i++;
       }
-
-      html += `</tbody></table>`;
-    } 
-    // --- CASO C: ALTRO ---
-    else {
-        return rawInput; // Se è solo testo, lo restituiamo così com'è
+      
+      // Se è testo o numero semplice, lo restituiamo così com'è
+      return String(val);
     }
 
-    html += `</div>`;
-    return html;
+    // --- COSTRUZIONE DELLA TABELLA ---
+    // Definiamo stili CSS inline (fissi)
+    var styleTable = "width:100%; border-collapse: collapse; font-family: sans-serif; font-size: 14px; border: 1px solid #ddd;";
+    var styleTh = "background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; text-align: left; color: #333;";
+    var styleTd = "border: 1px solid #ddd; padding: 10px; vertical-align: top; color: #444;";
+
+    finalHtml += '<div style="overflow-x:auto;">';
+
+    // CASO A: ARRAY DI OGGETTI (Tabella Classica)
+    if (Array.isArray(data) && data.length > 0) {
+      
+      // Troviamo tutte le colonne possibili
+      var headers = [];
+      // Se il primo elemento è un oggetto, usiamo le sue chiavi come intestazioni
+      if (typeof data[0] === 'object' && data[0] !== null) {
+        headers = Object.keys(data[0]);
+      } else {
+        headers = ["Valore"];
+      }
+
+      finalHtml += '<table style="' + styleTable + '">';
+      
+      // Creazione Intestazione (THEAD)
+      finalHtml += '<thead><tr>';
+      for (var h = 0; h < headers.length; h++) {
+        var headerName = headers[h].charAt(0).toUpperCase() + headers[h].slice(1);
+        finalHtml += '<th style="' + styleTh + '">' + headerName + '</th>';
+      }
+      finalHtml += '</tr></thead>';
+
+      // Creazione Corpo (TBODY)
+      finalHtml += '<tbody>';
+      for (var r = 0; r < data.length; r++) {
+        var row = data[r];
+        var bg = (r % 2 === 0) ? "#ffffff" : "#f9f9f9"; // Colore alternato righe
+        
+        finalHtml += '<tr style="background-color: ' + bg + ';">';
+        
+        // Se è un oggetto complesso, cerchiamo le colonne
+        if (typeof row === 'object' && row !== null) {
+           for (var c = 0; c < headers.length; c++) {
+             var key = headers[c];
+             var rawVal = row[key];
+             // Qui avviene la magia: trasformiamo il valore in stringa HTML ORA
+             var staticContent = makeStaticString(rawVal);
+             finalHtml += '<td style="' + styleTd + '">' + staticContent + '</td>';
+           }
+        } else {
+           // Se è una lista semplice ["a", "b"]
+           finalHtml += '<td style="' + styleTd + '">' + makeStaticString(row) + '</td>';
+        }
+        
+        finalHtml += '</tr>';
+      }
+      finalHtml += '</tbody></table>';
+
+    } 
+    // CASO B: OGGETTO SINGOLO (Tabella Verticale)
+    else if (typeof data === "object" && data !== null) {
+      
+      finalHtml += '<table style="' + styleTable + '">';
+      finalHtml += '<thead><tr><th style="' + styleTh + ' width:30%;">Proprietà</th><th style="' + styleTh + '">Valore</th></tr></thead>';
+      finalHtml += '<tbody>';
+      
+      var keys = Object.keys(data);
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var v = data[k];
+        var bg = (i % 2 === 0) ? "#ffffff" : "#f9f9f9";
+        
+        finalHtml += '<tr style="background-color: ' + bg + ';">';
+        finalHtml += '<td style="' + styleTd + '"><strong>' + k + '</strong></td>';
+        finalHtml += '<td style="' + styleTd + '">' + makeStaticString(v) + '</td>';
+        finalHtml += '</tr>';
+      }
+      finalHtml += '</tbody></table>';
+
+    } else {
+      // Caso testo semplice o altro
+      return rawInput;
+    }
+
+    finalHtml += '</div>';
+    return finalHtml;
 
   } catch (error) {
-    return `<div style="color:red; padding:10px; border:1px solid red; background:#fff0f0;">
-      <strong>Errore lettura dati:</strong><br>${error.message}
-    </div>`;
+    // In caso di errore JSON, restituiamo un box rosso statico
+    return '<div style="color:red; border:1px solid red; padding:10px;">Errore JSON: ' + error.message + '</div>';
   }
 };
