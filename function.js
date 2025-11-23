@@ -1,26 +1,50 @@
-window.function = function (jsonInput, unwrapDepth) {
+window.function = function (jsonInput, unwrapDepth, screenSize) {
   // 1. Lettura Input
   var rawInput = jsonInput ? jsonInput.value : "";
   var levelsToSkip = unwrapDepth ? parseInt(unwrapDepth.value) : 0;
   if (isNaN(levelsToSkip)) levelsToSkip = 0;
+
+  // Lettura Dimensione Schermo
+  var sizeVal = screenSize ? screenSize.value : "";
+  // Se è "small" o "mobile", attiviamo la modalità mobile
+  var isMobile = (sizeVal && (sizeVal.toLowerCase() === "small" || sizeVal.toLowerCase() === "mobile"));
 
   if (!rawInput) return "";
 
   // Pulizia
   rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // --- STILI CSS INLINE ---
-  var s = {
-      table: "width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 13px; border: 1px solid #dfe2e5; table-layout: auto;",
-      th: "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px 8px; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap;",
-      td: "border: 1px solid #dfe2e5; padding: 8px; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; min-width: 50px;",
-      // Summary: Rimuoviamo outline brutti, mettiamo cursore a manina
-      summary: "cursor: pointer; outline: none; padding: 4px 0; font-family: monospace; font-size: 12px;",
-      // Label dentro il summary (quella blu)
-      summaryLabel: "color: #0366d6; font-weight: 600; background: #f1f8ff; padding: 2px 6px; border-radius: 4px;",
-      nullVal: "color: #a0a0a0; font-style: italic;",
-      bool: "color: #005cc5; font-weight: bold;"
-  };
+  // --- STILI CSS DINAMICI (Desktop vs Mobile) ---
+  var s = {};
+
+  if (isMobile) {
+      // --- VERSIONE MOBILE (Stacked / Verticale) ---
+      // Invece di celle affiancate, le rendiamo blocchi (display: block) una sopra l'altra.
+      // Questo dà il 100% di larghezza all'accordion.
+      s.table = "width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 13px; border: none;";
+      
+      // L'intestazione diventa una piccola etichetta grigia sopra il dato
+      s.th = "display: block; width: 100%; background-color: transparent; border: none; padding: 10px 0 2px 0; font-weight: 700; text-align: left; color: #666; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;";
+      
+      // Il dato prende tutto lo spazio e ha una riga di separazione sotto
+      s.td = "display: block; width: 100%; border: none; border-bottom: 1px solid #eee; padding: 0 0 10px 0; vertical-align: top; color: #333; background-color: transparent; word-wrap: break-word;";
+      
+      // Rimuoviamo i bordi esterni per un look più pulito "App-like"
+      s.container = "overflow-x:hidden;"; 
+
+  } else {
+      // --- VERSIONE DESKTOP (Tabella Classica) ---
+      s.table = "width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 13px; border: 1px solid #dfe2e5; table-layout: auto;";
+      s.th = "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px 10px; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap; width: 30%;"; // Width 30% aiuta l'allineamento
+      s.td = "border: 1px solid #dfe2e5; padding: 10px; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; min-width: 150px;";
+      s.container = "overflow-x:auto;";
+  }
+
+  // Stili Comuni
+  s.summary = "cursor: pointer; outline: none; padding: 6px 0; font-family: monospace; font-size: 12px; display: block; width: 100%;";
+  s.summaryLabel = "color: #0366d6; font-weight: 600; background: #f1f8ff; padding: 4px 8px; border-radius: 4px; display: inline-block;";
+  s.nullVal = "color: #a0a0a0; font-style: italic;";
+  s.bool = "color: #005cc5; font-weight: bold;";
 
   function formatHeader(key) {
     if (!key) return "";
@@ -63,12 +87,7 @@ window.function = function (jsonInput, unwrapDepth) {
          return String(obj);
       }
 
-      // Preparazione Contenuto
       var contentHtml = "";
-      
-      // CREIAMO L'ETICHETTA PER IL BOTTONE
-      // Esempio: "3 Items" o "User Details"
-      // Usiamo termini inglesi standard o simboli perché sono più brevi su mobile
       var infoLabel = Array.isArray(obj) ? obj.length + " righe" : Object.keys(obj).length + " campi";
 
       if (Array.isArray(obj)) {
@@ -76,6 +95,10 @@ window.function = function (jsonInput, unwrapDepth) {
         var isListOfObjects = typeof obj[0] === 'object' && obj[0] !== null;
 
         if (isListOfObjects) {
+            // Se siamo su Mobile e c'è una lista di oggetti, 
+            // potremmo voler mantenere lo scroll orizzontale per la tabella principale (come Excel)
+            // MA per le tabelle annidate (accordion) usiamo lo stile verticale.
+            
             var keys = [];
             for (var i = 0; i < obj.length; i++) {
                 var rowKeys = Object.keys(obj[i]);
@@ -83,21 +106,37 @@ window.function = function (jsonInput, unwrapDepth) {
                     if (keys.indexOf(rowKeys[k]) === -1) keys.push(rowKeys[k]);
                 }
             }
-            contentHtml += `<table style="${s.table}"><thead><tr>`;
+            
+            // HACK: Se siamo su mobile e questa è una lista (Array), 
+            // forziamo un po' di stile tabella per non perdere la struttura a griglia dei dati principali
+            // Usiamo uno stile ibrido solo per gli array su mobile
+            var localTableStyle = s.table;
+            var localThStyle = s.th;
+            var localTdStyle = s.td;
+
+            if (isMobile && isRoot) {
+                // Sulla root mobile, manteniamo lo scroll orizzontale classico
+                localTableStyle = "width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 13px; border: 1px solid #eee;";
+                localThStyle = "background: #f9f9f9; padding: 8px; font-weight: bold; border: 1px solid #eee; white-space: nowrap;";
+                localTdStyle = "padding: 8px; border: 1px solid #eee; min-width: 100px;";
+            }
+
+            contentHtml += `<table style="${localTableStyle}"><thead><tr>`;
             for (var h = 0; h < keys.length; h++) {
-                contentHtml += `<th style="${s.th}">${formatHeader(keys[h])}</th>`;
+                contentHtml += `<th style="${localThStyle}">${formatHeader(keys[h])}</th>`;
             }
             contentHtml += '</tr></thead><tbody>';
             for (var r = 0; r < obj.length; r++) {
-                var bg = (r % 2 === 0) ? "#fff" : "#f9f9f9"; 
+                var bg = (r % 2 === 0 && !isMobile) ? "#fff" : (isMobile ? "transparent" : "#f9f9f9"); 
                 contentHtml += `<tr style="background-color:${bg}">`;
                 for (var c = 0; c < keys.length; c++) {
-                    contentHtml += `<td style="${s.td}">${buildTable(obj[r][keys[c]], false)}</td>`;
+                    contentHtml += `<td style="${localTdStyle}">${buildTable(obj[r][keys[c]], false)}</td>`;
                 }
                 contentHtml += '</tr>';
             }
             contentHtml += '</tbody></table>';
         } else {
+            // Lista Semplice
             contentHtml += `<table style="${s.table}"><tbody>`;
             for (var i = 0; i < obj.length; i++) {
                 contentHtml += `<tr><td style="${s.td}">${buildTable(obj[i], false)}</td></tr>`;
@@ -106,31 +145,30 @@ window.function = function (jsonInput, unwrapDepth) {
         }
       } 
       else {
+          // OGGETTO SINGOLO (Verticale)
+          // Qui la magia del "display: block" su mobile funziona benissimo
           var keys = Object.keys(obj);
           if (keys.length === 0) return "{}";
           contentHtml += `<table style="${s.table}"><tbody>`;
           for (var k = 0; k < keys.length; k++) {
               contentHtml += '<tr>';
-              contentHtml += `<th style="${s.th} width: 30%; white-space: normal;">${formatHeader(keys[k])}</th>`;
+              contentHtml += `<th style="${s.th}">${formatHeader(keys[k])}</th>`;
               contentHtml += `<td style="${s.td}">${buildTable(obj[keys[k]], false)}</td>`;
               contentHtml += '</tr>';
           }
           contentHtml += '</tbody></table>';
       }
 
-      // --- OUTPUT ---
+      // --- OUTPUT CON ACCORDION ---
       if (isRoot) {
           return contentHtml;
       } else {
-          // MODIFICA QUI:
-          // Non scriviamo "Apri/Chiudi". Mettiamo solo l'etichetta stilizzata tipo "Badge".
-          // Il tag <details> aggiungerà automaticamente il triangolo ▶ a sinistra.
           return `
             <details>
                 <summary style="${s.summary}">
-                   <span style="${s.summaryLabel}">${infoLabel}</span>
+                   <span style="${s.summaryLabel}">▶ ${infoLabel}</span>
                 </summary>
-                <div style="margin-top: 8px; margin-left: 5px; border-left: 2px solid #eee; padding-left: 5px;">
+                <div style="margin-top: 5px; padding-left: 0;">
                     ${contentHtml}
                 </div>
             </details>
@@ -138,7 +176,7 @@ window.function = function (jsonInput, unwrapDepth) {
       }
     }
 
-    return '<div style="overflow-x:auto;">' + buildTable(data, true) + '</div>';
+    return `<div style="${s.container}">` + buildTable(data, true) + '</div>';
 
   } catch (e) {
     return '<div style="color:red; border:1px solid red; padding:10px;">Invalid JSON: ' + e.message + '</div>';
