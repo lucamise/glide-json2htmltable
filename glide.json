@@ -1,0 +1,18 @@
+[
+  {
+    "kind": "column",
+    "name": "JSON to HTML Table",
+    "description": "Converts a JSON Array into a styled HTML Table.",
+    "author": "Tu",
+    "params": [
+      {
+        "name": "jsonInput",
+        "displayName": "JSON Data",
+        "type": "string"
+      }
+    ],
+    "result": {
+      "type": "string"
+    }
+  }
+]
