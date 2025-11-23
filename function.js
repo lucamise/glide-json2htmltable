@@ -1,144 +1,110 @@
-window.function = function (jsonInput, screenSize) {
+window.function = function (jsonInput) {
   // 1. Lettura Input
   var rawInput = jsonInput ? jsonInput.value : "";
-  var sizeVal = screenSize ? screenSize.value : "";
-  sizeVal = sizeVal.toLowerCase().trim();
-
   if (!rawInput) return "";
 
-  // Pulizia input
+  // Pulizia Markdown
   rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // Logica Responsive
-  var isMobile = (sizeVal === "small" || sizeVal === "mobile");
-
-  // --- STILI INLINE (Aggiornati per struttura rigida) ---
-  var s = {
-    // Container
-    container: "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; color: #333;",
-    
-    // DESKTOP (Grande tabella unica)
-    table: "width:100%; border-collapse: collapse; border: 1px solid #dfe2e5;",
-    th: "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px; font-weight: 600; text-align: left; white-space: nowrap;",
-    td: "border: 1px solid #dfe2e5; padding: 10px; vertical-align: top;",
-    
-    // MOBILE (Card Container)
-    card: "border: 1px solid #e1e4e8; border-radius: 8px; margin-bottom: 12px; background: #fff; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05);",
-    
-    // MOBILE (Tabella interna alla Card - GARANTISCE 2 COLONNE)
-    cardTable: "width: 100%; border-collapse: collapse;",
-    cardTdLabel: "width: 35%; background-color: #f9f9f9; padding: 10px; font-weight: 600; color: #555; border-bottom: 1px solid #eee; vertical-align: top; font-size: 0.9em; text-transform: uppercase;",
-    cardTdValue: "padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; color: #333;",
-    
-    // Utilities
-    boolTrue: "color: #2ea043; font-weight: bold;",
-    boolFalse: "color: #d73a49; font-weight: bold;",
-    nullVal: "color: #ccc; font-style: italic;"
-  };
-
-  function formatHeader(key) {
-    if (!key) return "";
-    var clean = key.replace(/[_-]/g, " ");
-    return clean.charAt(0).toUpperCase() + clean.slice(1);
-  }
+  // STILI CSS (Puliti e professionali, simili al sito di riferimento)
+  // Usiamo classi inline perché in Glide non possiamo caricare un CSS esterno facilmente
+  var cssTable = "width:100%; border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; border: 1px solid #dfe2e5;";
+  var cssTh = "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px; font-weight: 600; text-align: left; color: #24292e;";
+  var cssTd = "border: 1px solid #dfe2e5; padding: 10px; vertical-align: top; color: #24292e; background-color: #fff;";
+  var cssNull = "color: #a0a0a0; font-style: italic;"; // Per valori nulli
+  var cssBool = "color: #005cc5; font-weight: bold;";   // Per true/false
 
   try {
     var data = JSON.parse(rawInput);
 
-    // --- RENDERER DEI VALORI ---
-    function renderValue(val) {
-      if (val === null || val === undefined) return `<span style="${s.nullVal}">null</span>`;
-      if (typeof val === 'boolean') return `<span style="${val ? s.boolTrue : s.boolFalse}">${val}</span>`;
+    // --- FUNZIONE PRINCIPALE RICORSIVA ---
+    // Questa funzione decide cosa disegnare in base al tipo di dato che riceve
+    function buildTable(obj) {
       
-      if (typeof val === 'object') {
-        if (Array.isArray(val)) {
-            if (val.length === 0) return "[]";
-            return `<ul style="margin:0; padding-left:15px; text-align:left;">${val.map(v => `<li>${renderValue(v)}</li>`).join('')}</ul>`;
-        }
-        return Object.keys(val).map(k => `<div><strong>${k}:</strong> ${renderValue(val[k])}</div>`).join('');
+      // CASO 1: Nullo o Undefined
+      if (obj === null || obj === undefined) return '<span style="' + cssNull + '">null</span>';
+      
+      // CASO 2: Primitivi (Testo, Numeri, Booleani)
+      if (typeof obj !== 'object') {
+         if (typeof obj === 'boolean') return '<span style="' + cssBool + '">' + obj + '</span>';
+         return String(obj);
       }
-      return String(val);
-    }
 
-    var html = `<div style="${s.container}">`;
+      // CASO 3: ARRAY (Lista)
+      if (Array.isArray(obj)) {
+        if (obj.length === 0) return "[]"; // Lista vuota
+        
+        // Controlliamo se è una lista di oggetti o di valori semplici
+        var isListOfObjects = typeof obj[0] === 'object' && obj[0] !== null;
 
-    // --- GESTIONE ARRAY ---
-    if (Array.isArray(data)) {
-      if (data.length === 0) return "";
-      var isListOfObjects = typeof data[0] === 'object' && data[0] !== null;
-
-      if (isListOfObjects) {
-        // Troviamo tutte le colonne
-        var keys = [];
-        for (var i = 0; i < data.length; i++) {
-            var rowKeys = Object.keys(data[i]);
-            for (var k = 0; k < rowKeys.length; k++) {
-                if (keys.indexOf(rowKeys[k]) === -1) keys.push(rowKeys[k]);
+        if (isListOfObjects) {
+            // È una tabella vera e propria!
+            // STEP A: Troviamo TUTTE le chiavi uniche da TUTTE le righe (Logica "All Columns")
+            var keys = [];
+            for (var i = 0; i < obj.length; i++) {
+                var rowKeys = Object.keys(obj[i]);
+                for (var k = 0; k < rowKeys.length; k++) {
+                    if (keys.indexOf(rowKeys[k]) === -1) {
+                        keys.push(rowKeys[k]);
+                    }
+                }
             }
-        }
 
-        // --- RAMO MOBILE (Cards con Tabella Interna) ---
-        if (isMobile) {
-            for (var r = 0; r < data.length; r++) {
-                html += `<div style="${s.card}">`;
-                // Qui creiamo una tabella PER OGNI CARTA per forzare il layout a 2 colonne
-                html += `<table style="${s.cardTable}"><tbody>`;
-                
+            // STEP B: Costruiamo la tabella HTML
+            var html = '<table style="' + cssTable + '"><thead><tr>';
+            for (var h = 0; h < keys.length; h++) {
+                html += '<th style="' + cssTh + '">' + keys[h] + '</th>';
+            }
+            html += '</tr></thead><tbody>';
+
+            for (var r = 0; r < obj.length; r++) {
+                html += '<tr>';
                 for (var c = 0; c < keys.length; c++) {
                     var key = keys[c];
-                    var val = data[r][key];
-                    
-                    // Riga della carta: Cella SX (Label) | Cella DX (Valore)
-                    html += `<tr>`;
-                    html += `<td style="${s.cardTdLabel}">${formatHeader(key)}</td>`;
-                    html += `<td style="${s.cardTdValue}">${renderValue(val)}</td>`;
-                    html += `</tr>`;
+                    var val = obj[r][key];
+                    // RICORSIONE: Chiamiamo buildTable per il contenuto della cella
+                    html += '<td style="' + cssTd + '">' + buildTable(val) + '</td>';
                 }
-                
-                html += `</tbody></table>`;
-                html += `</div>`;
+                html += '</tr>';
             }
-        } 
-        // --- RAMO DESKTOP (Tabella Classica) ---
-        else {
-            html += `<div style="overflow-x:auto;"><table style="${s.table}"><thead><tr>`;
-            for (var h = 0; h < keys.length; h++) {
-                html += `<th style="${s.th}">${formatHeader(keys[h])}</th>`;
+            html += '</tbody></table>';
+            return html;
+
+        } else {
+            // È una lista semplice (es. ["mela", "pera"])
+            // Creiamo una tabellina a una colonna o una lista puntata
+            var listHtml = '<table style="' + cssTable + '"><tbody>';
+            for (var i = 0; i < obj.length; i++) {
+                listHtml += '<tr><td style="' + cssTd + '">' + buildTable(obj[i]) + '</td></tr>';
             }
-            html += `</tr></thead><tbody>`;
-            
-            for (var r = 0; r < data.length; r++) {
-                var bg = (r % 2 === 0) ? "#ffffff" : "#f9f9f9";
-                html += `<tr style="background-color:${bg}">`;
-                for (var c = 0; c < keys.length; c++) {
-                    html += `<td style="${s.td}">${renderValue(data[r][keys[c]])}</td>`;
-                }
-                html += `</tr>`;
-            }
-            html += `</tbody></table></div>`;
+            listHtml += '</tbody></table>';
+            return listHtml;
         }
-      } else {
-        // Lista semplice
-        html += `<ul style="padding-left:20px;">${data.map(d => `<li>${renderValue(d)}</li>`).join('')}</ul>`;
       }
-    } 
-    // --- GESTIONE OGGETTO SINGOLO ---
-    else if (typeof data === 'object') {
-       var k = Object.keys(data);
-       html += `<table style="${s.table}"><tbody>`;
-       for(var i=0; i<k.length; i++) {
-           // Tabella verticale fissa
-           html += `<tr><th style="${s.th} width:35%;">${formatHeader(k[i])}</th><td style="${s.td}">${renderValue(data[k[i]])}</td></tr>`;
-       }
-       html += `</tbody></table>`;
-    } else {
-       return rawInput;
+
+      // CASO 4: OGGETTO SINGOLO
+      // Creiamo una tabella verticale (Chiave | Valore)
+      var keys = Object.keys(obj);
+      if (keys.length === 0) return "{}";
+
+      var objHtml = '<table style="' + cssTable + '"><tbody>';
+      for (var k = 0; k < keys.length; k++) {
+          var keyName = keys[k];
+          var value = obj[keyName];
+          objHtml += '<tr>';
+          objHtml += '<th style="' + cssTh + ' width: 30%;">' + keyName + '</th>';
+          // RICORSIONE: Anche qui, se il valore è complesso, genererà un'altra tabella dentro
+          objHtml += '<td style="' + cssTd + '">' + buildTable(value) + '</td>';
+          objHtml += '</tr>';
+      }
+      objHtml += '</tbody></table>';
+      return objHtml;
     }
 
-    html += `</div>`;
-    return html;
+    // Avviamo la generazione avvolgendo tutto in un div per lo scroll orizzontale
+    return '<div style="overflow-x:auto;">' + buildTable(data) + '</div>';
 
   } catch (e) {
-    return `<div style="color:red; padding:10px; border:1px solid red;">Errore JSON: ${e.message}</div>`;
+    return '<div style="color:red; border:1px solid red; padding:10px;">Invalid JSON: ' + e.message + '</div>';
   }
 };
