@@ -7,19 +7,24 @@ window.function = function (jsonInput) {
   rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
 
   // STILI CSS
-  // MODIFICA 1: width: auto (invece di 100%) -> La tabella si restringe al contenuto
-  var cssTable = "width: auto; min-width: 50%; border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; border: 1px solid #dfe2e5;";
+  // MODIFICA 1: width: 100% -> La tabella occupa tutto lo spazio disponibile ma non di più.
+  // table-layout: auto -> L'algoritmo del browser decide la larghezza delle colonne in base al contenuto (effetto fit-content).
+  var cssTable = "width: 100%; border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; border: 1px solid #dfe2e5; table-layout: auto;";
   
-  // MODIFICA 2: white-space: nowrap -> Le intestazioni non vanno mai a capo
-  var cssTh = "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px 15px; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap;";
+  // MODIFICA 2: Headers (Intestazioni)
+  // white-space: nowrap -> Le intestazioni le teniamo su una riga se possibile, è più elegante.
+  var cssTh = "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px 8px; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap;";
   
-  // MODIFICA 3: white-space: nowrap -> Anche i dati cercano di stare su una riga (stile Excel)
-  var cssTd = "border: 1px solid #dfe2e5; padding: 10px 15px; vertical-align: top; color: #24292e; background-color: #fff; white-space: nowrap;";
+  // MODIFICA 3: Celle Dati
+  // white-space: normal -> FONDAMENTALE: permette al testo di andare a capo se è troppo lungo.
+  // word-break: break-word -> Se c'è una parola lunghissima (es. un URL), la spezza per non creare overflow.
+  // min-width: 50px -> Assicura che la colonna non diventi illeggibile (troppo stretta).
+  var cssTd = "border: 1px solid #dfe2e5; padding: 8px; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; min-width: 50px;";
   
   var cssNull = "color: #a0a0a0; font-style: italic;"; 
   var cssBool = "color: #005cc5; font-weight: bold;";
 
-  // FORMATTER: Pulisce le intestazioni (es. "user_id" -> "User id")
+  // FORMATTER
   function formatHeader(key) {
     if (!key) return "";
     var clean = key.replace(/[_-]/g, " ");
@@ -30,7 +35,6 @@ window.function = function (jsonInput) {
     var data = JSON.parse(rawInput);
 
     // --- LOGICA DI SBUSTAMENTO (UNWRAP) ---
-    // Scarta i gusci esterni inutili (es. {"data": ...})
     while (data && typeof data === 'object' && !Array.isArray(data)) {
         var keys = Object.keys(data);
         if (keys.length === 1) {
@@ -43,7 +47,7 @@ window.function = function (jsonInput) {
     // --- FUNZIONE PRINCIPALE RICORSIVA ---
     function buildTable(obj) {
       
-      // CASO 1: Nullo o Undefined
+      // CASO 1: Nullo
       if (obj === null || obj === undefined) return '<span style="' + cssNull + '">null</span>';
       
       // CASO 2: Primitivi
@@ -52,7 +56,7 @@ window.function = function (jsonInput) {
          return String(obj);
       }
 
-      // CASO 3: ARRAY (Lista)
+      // CASO 3: ARRAY
       if (Array.isArray(obj)) {
         if (obj.length === 0) return "[]";
         
@@ -107,8 +111,8 @@ window.function = function (jsonInput) {
           var keyName = keys[k];
           var value = obj[keyName];
           objHtml += '<tr>';
-          // Qui header rimane largo il giusto, senza percentuali fisse
-          objHtml += '<th style="' + cssTh + '">' + formatHeader(keyName) + '</th>';
+          // Qui mettiamo width: 30% all'header per dare coerenza, il resto si adatta
+          objHtml += '<th style="' + cssTh + ' width: 30%; white-space: normal;">' + formatHeader(keyName) + '</th>';
           objHtml += '<td style="' + cssTd + '">' + buildTable(value) + '</td>';
           objHtml += '</tr>';
       }
@@ -116,7 +120,8 @@ window.function = function (jsonInput) {
       return objHtml;
     }
 
-    return '<div style="overflow-x:auto; padding-bottom: 5px;">' + buildTable(data) + '</div>';
+    // Manteniamo overflow-x: auto nel wrapper per sicurezza estrema (es. tabelle con 20 colonne)
+    return '<div style="overflow-x:auto;">' + buildTable(data) + '</div>';
 
   } catch (e) {
     return '<div style="color:red; border:1px solid red; padding:10px;">Invalid JSON: ' + e.message + '</div>';
