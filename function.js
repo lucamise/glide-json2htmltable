@@ -4,7 +4,6 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
   var levelsToSkip = unwrapDepth ? parseInt(unwrapDepth.value) : 0;
   if (isNaN(levelsToSkip)) levelsToSkip = 0;
 
-  // Lettura Pixel
   var widthVal = screenWidth ? Number(screenWidth.value) : 1024;
   var isMobile = !isNaN(widthVal) && widthVal <= 400;
 
@@ -13,37 +12,35 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
   // Pulizia
   rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // --- STILI CSS (Compact vs Standard) ---
+  // --- STILI CSS ---
   var s = {};
 
-  // Stile Base Tabella (Uguale per tutti)
   s.table = "width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; border: 1px solid #dfe2e5; table-layout: auto;";
 
   if (isMobile) {
-      // --- MOBILE (Compact Mode) ---
-      // Testo più piccolo, meno padding, ma struttura identica al desktop
+      // MOBILE (Compact)
       var fontSize = "12px";
-      var padding = "8px 5px"; // Meno spazio laterale
-
+      var padding = "8px 4px";
       s.th = `background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: ${padding}; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap; font-size: ${fontSize};`;
-      
-      // I dati possono andare a capo, ma cerchiamo di non stringerli troppo
       s.td = `border: 1px solid #dfe2e5; padding: ${padding}; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; font-size: ${fontSize}; min-width: 80px;`;
-      
   } else {
-      // --- DESKTOP (Standard Mode) ---
-      // Più arioso
+      // DESKTOP
       var fontSize = "13px";
       var padding = "12px 10px";
-
       s.th = `background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: ${padding}; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap; font-size: ${fontSize};`;
       s.td = `border: 1px solid #dfe2e5; padding: ${padding}; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; font-size: ${fontSize}; min-width: 120px;`;
   }
 
-  // Stili Comuni
-  s.container = "overflow-x: auto;"; // Scroll orizzontale SEMPRE attivo se serve
-  s.summary = "cursor: pointer; outline: none; padding: 5px 0; font-family: monospace; font-size: 12px; display: block; width: 100%;";
-  s.summaryLabel = "color: #0366d6; font-weight: 600; background: #f1f8ff; padding: 3px 6px; border-radius: 4px; display: inline-block;";
+  s.container = "overflow-x: auto;";
+  
+  // MODIFICA IMPORTANTE QUI SOTTO:
+  // Rimuoviamo "list-style: none" e "display: block" per far riapparire la freccia nativa.
+  // "display: list-item" è il default che fa vedere il triangolino.
+  s.summary = "cursor: pointer; outline: none; padding: 5px 0; font-family: monospace; font-size: 12px; font-weight: bold; color: #0366d6;";
+  
+  // Label stile badge
+  s.summaryLabel = "background: #f1f8ff; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-left: 5px;";
+  
   s.nullVal = "color: #a0a0a0; font-style: italic;";
   s.bool = "color: #005cc5; font-weight: bold;";
 
@@ -126,16 +123,12 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
         }
       } 
       else {
-          // OGGETTO SINGOLO
           var keys = Object.keys(obj);
           if (keys.length === 0) return "{}";
           contentHtml += `<table style="${s.table}"><tbody>`;
           for (var k = 0; k < keys.length; k++) {
               contentHtml += '<tr>';
-              // Qui usiamo width auto o una percentuale fissa per la colonna header
-              // Su mobile, mettiamo 35% alla chiave, il resto al valore
               var thWidth = isMobile ? "width: 35%;" : "width: 30%;";
-              
               contentHtml += `<th style="${s.th} ${thWidth} white-space: normal;">${formatHeader(keys[k])}</th>`;
               contentHtml += `<td style="${s.td}">${buildTable(obj[keys[k]], false)}</td>`;
               contentHtml += '</tr>';
@@ -146,10 +139,14 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
       if (isRoot) {
           return contentHtml;
       } else {
+          // QUI STA LA MAGIA:
+          // 1. Non ho messo il carattere "▶" nel testo.
+          // 2. Il tag <summary> mostrerà automaticamente il triangolo di default del browser.
+          // 3. Quando clicchi, il browser ruoterà quel triangolo verso il basso.
           return `
             <details>
                 <summary style="${s.summary}">
-                   <span style="${s.summaryLabel}">▶ ${infoLabel}</span>
+                   <span style="${s.summaryLabel}">${infoLabel}</span>
                 </summary>
                 <div style="margin-top: 5px; padding-left: 0;">
                     ${contentHtml}
