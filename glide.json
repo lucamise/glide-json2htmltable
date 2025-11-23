@@ -2,8 +2,8 @@
   {
     "kind": "column",
     "name": "JSON to HTML Table (Responsive)",
-    "description": "Converte JSON in HTML. Si adatta se mobile o desktop.",
-    "author": "",
+    "description": "Converte JSON in HTML. Usa 'small' per vista mobile.",
+    "author": "Tu",
     "params": [
       {
         "name": "jsonInput",
@@ -11,9 +11,9 @@
         "type": "string"
       },
       {
-        "name": "screenWidth",
-        "displayName": "Screen Width (Passa il valore 'Window Width')",
-        "type": "number"
+        "name": "screenSize",
+        "displayName": "Screen Size (small/medium/large)",
+        "type": "string"
       }
     ],
     "result": {
