@@ -1,8 +1,8 @@
 [
   {
     "kind": "column",
-    "name": "JSON to HTML Table (Advanced)",
-    "description": "Converte JSON in Tabella. Puoi saltare i livelli iniziali (Unwrap).",
+    "name": "JSON to HTML Table (Pixel Perfect)",
+    "description": "Visualizza JSON in tabella. Diventa 'Mobile View' sotto i 400px.",
     "author": "",
     "params": [
       {
@@ -12,7 +12,12 @@
       },
       {
         "name": "unwrapDepth",
-        "displayName": "Livelli da saltare (0 = Nessuno, 1, 2...)",
+        "displayName": "Livelli da saltare (0, 1, 2...)",
+        "type": "number"
+      },
+      {
+        "name": "screenWidth",
+        "displayName": "Screen Width (Passa 'Window Width')",
         "type": "number"
       }
     ],
