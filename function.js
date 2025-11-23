@@ -1,46 +1,48 @@
-window.function = function (jsonInput, unwrapDepth, screenSize) {
+window.function = function (jsonInput, unwrapDepth, screenWidth) {
   // 1. Lettura Input
   var rawInput = jsonInput ? jsonInput.value : "";
   var levelsToSkip = unwrapDepth ? parseInt(unwrapDepth.value) : 0;
   if (isNaN(levelsToSkip)) levelsToSkip = 0;
 
-  // Lettura Dimensione Schermo
-  var sizeVal = screenSize ? screenSize.value : "";
-  // Se è "small" o "mobile", attiviamo la modalità mobile
-  var isMobile = (sizeVal && (sizeVal.toLowerCase() === "small" || sizeVal.toLowerCase() === "mobile"));
+  // --- LOGICA BREAKPOINT ---
+  // Leggiamo la larghezza in pixel. Se non c'è, assumiamo desktop (1024)
+  var widthVal = screenWidth ? Number(screenWidth.value) : 1024;
+  
+  // IL TUO BREAKPOINT: 400px
+  // Se è <= 400px, attiviamo la modalità Mobile
+  var isMobile = !isNaN(widthVal) && widthVal <= 400;
 
   if (!rawInput) return "";
 
   // Pulizia
   rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // --- STILI CSS DINAMICI (Desktop vs Mobile) ---
+  // --- STILI CSS DINAMICI ---
   var s = {};
 
   if (isMobile) {
-      // --- VERSIONE MOBILE (Stacked / Verticale) ---
-      // Invece di celle affiancate, le rendiamo blocchi (display: block) una sopra l'altra.
-      // Questo dà il 100% di larghezza all'accordion.
+      // --- MOBILE (<= 400px) ---
+      // Layout verticale: Intestazione sopra, Dato sotto.
       s.table = "width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 13px; border: none;";
       
-      // L'intestazione diventa una piccola etichetta grigia sopra il dato
-      s.th = "display: block; width: 100%; background-color: transparent; border: none; padding: 10px 0 2px 0; font-weight: 700; text-align: left; color: #666; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;";
+      // TH: Diventa una piccola etichetta grigia sopra il dato
+      s.th = "display: block; width: 100%; background: transparent; border: none; padding: 10px 0 2px 0; font-weight: 700; text-align: left; color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;";
       
-      // Il dato prende tutto lo spazio e ha una riga di separazione sotto
-      s.td = "display: block; width: 100%; border: none; border-bottom: 1px solid #eee; padding: 0 0 10px 0; vertical-align: top; color: #333; background-color: transparent; word-wrap: break-word;";
+      // TD: Il dato prende tutto lo spazio
+      s.td = "display: block; width: 100%; border: none; border-bottom: 1px solid #f0f0f0; padding: 0 0 10px 0; vertical-align: top; color: #333; background: transparent; word-wrap: break-word;";
       
-      // Rimuoviamo i bordi esterni per un look più pulito "App-like"
       s.container = "overflow-x:hidden;"; 
 
   } else {
-      // --- VERSIONE DESKTOP (Tabella Classica) ---
+      // --- DESKTOP (> 400px) ---
+      // Tabella classica affiancata
       s.table = "width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 13px; border: 1px solid #dfe2e5; table-layout: auto;";
-      s.th = "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px 10px; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap; width: 30%;"; // Width 30% aiuta l'allineamento
+      s.th = "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px 10px; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap; width: 30%;";
       s.td = "border: 1px solid #dfe2e5; padding: 10px; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; min-width: 150px;";
       s.container = "overflow-x:auto;";
   }
 
-  // Stili Comuni
+  // Stili Comuni (Accordion e Label)
   s.summary = "cursor: pointer; outline: none; padding: 6px 0; font-family: monospace; font-size: 12px; display: block; width: 100%;";
   s.summaryLabel = "color: #0366d6; font-weight: 600; background: #f1f8ff; padding: 4px 8px; border-radius: 4px; display: inline-block;";
   s.nullVal = "color: #a0a0a0; font-style: italic;";
@@ -95,10 +97,7 @@ window.function = function (jsonInput, unwrapDepth, screenSize) {
         var isListOfObjects = typeof obj[0] === 'object' && obj[0] !== null;
 
         if (isListOfObjects) {
-            // Se siamo su Mobile e c'è una lista di oggetti, 
-            // potremmo voler mantenere lo scroll orizzontale per la tabella principale (come Excel)
-            // MA per le tabelle annidate (accordion) usiamo lo stile verticale.
-            
+            // Lista di Oggetti
             var keys = [];
             for (var i = 0; i < obj.length; i++) {
                 var rowKeys = Object.keys(obj[i]);
@@ -107,15 +106,14 @@ window.function = function (jsonInput, unwrapDepth, screenSize) {
                 }
             }
             
-            // HACK: Se siamo su mobile e questa è una lista (Array), 
-            // forziamo un po' di stile tabella per non perdere la struttura a griglia dei dati principali
-            // Usiamo uno stile ibrido solo per gli array su mobile
+            // Logica Ibrida per la Root su Mobile: 
+            // Se è la tabella principale (root) e siamo su mobile, manteniamo lo scroll orizzontale
+            // Altrimenti (se è un accordion annidato) usiamo lo stile verticale (stacked).
             var localTableStyle = s.table;
             var localThStyle = s.th;
             var localTdStyle = s.td;
 
             if (isMobile && isRoot) {
-                // Sulla root mobile, manteniamo lo scroll orizzontale classico
                 localTableStyle = "width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 13px; border: 1px solid #eee;";
                 localThStyle = "background: #f9f9f9; padding: 8px; font-weight: bold; border: 1px solid #eee; white-space: nowrap;";
                 localTdStyle = "padding: 8px; border: 1px solid #eee; min-width: 100px;";
@@ -146,7 +144,6 @@ window.function = function (jsonInput, unwrapDepth, screenSize) {
       } 
       else {
           // OGGETTO SINGOLO (Verticale)
-          // Qui la magia del "display: block" su mobile funziona benissimo
           var keys = Object.keys(obj);
           if (keys.length === 0) return "{}";
           contentHtml += `<table style="${s.table}"><tbody>`;
@@ -159,7 +156,7 @@ window.function = function (jsonInput, unwrapDepth, screenSize) {
           contentHtml += '</tbody></table>';
       }
 
-      // --- OUTPUT CON ACCORDION ---
+      // --- OUTPUT ---
       if (isRoot) {
           return contentHtml;
       } else {
