@@ -15,34 +15,43 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
   // --- STILI CSS ---
   var s = {};
 
+  // Stile Base Tabella
   s.table = "width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; border: 1px solid #dfe2e5; table-layout: auto;";
 
+  // Variabili per gestire la densità
+  var fontSize, padding;
+
   if (isMobile) {
-      // MOBILE (Compact)
-      var fontSize = "12px";
-      var padding = "8px 4px";
-      s.th = `background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: ${padding}; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap; font-size: ${fontSize};`;
-      s.td = `border: 1px solid #dfe2e5; padding: ${padding}; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; font-size: ${fontSize}; min-width: 80px;`;
+      // MOBILE (Super Compact)
+      fontSize = "11px"; // Testo piccolo
+      padding = "3px 4px"; // Padding minimo per ridurre altezza riga
   } else {
-      // DESKTOP
-      var fontSize = "13px";
-      var padding = "12px 10px";
-      s.th = `background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: ${padding}; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap; font-size: ${fontSize};`;
-      s.td = `border: 1px solid #dfe2e5; padding: ${padding}; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; font-size: ${fontSize}; min-width: 120px;`;
+      // DESKTOP (Compact)
+      fontSize = "13px";
+      padding = "5px 8px"; // Abbastanza stretto anche su desktop
   }
+
+  // STILI CELLE (TH e TD)
+  // Nota: "vertical-align: top" e "text-align: left" sono forzati ovunque
+  var cellBase = `padding: ${padding}; border: 1px solid #dfe2e5; font-size: ${fontSize}; vertical-align: top; text-align: left;`;
+
+  s.th = `${cellBase} background-color: #f6f8fa; font-weight: 700; color: #444; white-space: nowrap;`;
+  s.td = `${cellBase} background-color: #fff; color: #222; white-space: normal; word-wrap: break-word; min-width: 80px;`;
 
   s.container = "overflow-x: auto;";
   
-  // MODIFICA IMPORTANTE QUI SOTTO:
-  // Rimuoviamo "list-style: none" e "display: block" per far riapparire la freccia nativa.
-  // "display: list-item" è il default che fa vedere il triangolino.
-  s.summary = "cursor: pointer; outline: none; padding: 5px 0; font-family: monospace; font-size: 12px; font-weight: bold; color: #0366d6;";
+  // STILI ACCORDION (Summary)
+  // padding: 2px 0 -> Riduce l'altezza della riga cliccabile
+  s.summary = "cursor: pointer; outline: none; padding: 2px 0; font-family: sans-serif; font-size: 11px; text-align: left;";
   
-  // Label stile badge
-  s.summaryLabel = "background: #f1f8ff; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-left: 5px;";
+  // STILE BADGE (Grigio e Vicino)
+  // margin-left: 2px -> Molto vicino alla freccina nativa
+  // background: #e0e0e0 -> Grigio neutro
+  // color: #333 -> Testo scuro
+  s.summaryLabel = "background: #e0e0e0; color: #333; font-weight: 600; padding: 1px 5px; border-radius: 3px; display: inline-block; margin-left: 2px; border: 1px solid #ccc;";
   
-  s.nullVal = "color: #a0a0a0; font-style: italic;";
-  s.bool = "color: #005cc5; font-weight: bold;";
+  s.nullVal = "color: #999; font-style: italic;";
+  s.bool = "color: #444; font-weight: bold;";
 
   function formatHeader(key) {
     if (!key) return "";
@@ -106,7 +115,8 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
             }
             contentHtml += '</tr></thead><tbody>';
             for (var r = 0; r < obj.length; r++) {
-                var bg = (r % 2 === 0) ? "#fff" : "#f9f9f9"; 
+                // Zebra striping molto leggero
+                var bg = (r % 2 === 0) ? "#fff" : "#fcfcfc"; 
                 contentHtml += `<tr style="background-color:${bg}">`;
                 for (var c = 0; c < keys.length; c++) {
                     contentHtml += `<td style="${s.td}">${buildTable(obj[r][keys[c]], false)}</td>`;
@@ -123,6 +133,7 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
         }
       } 
       else {
+          // OGGETTO SINGOLO
           var keys = Object.keys(obj);
           if (keys.length === 0) return "{}";
           contentHtml += `<table style="${s.table}"><tbody>`;
@@ -139,16 +150,12 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
       if (isRoot) {
           return contentHtml;
       } else {
-          // QUI STA LA MAGIA:
-          // 1. Non ho messo il carattere "▶" nel testo.
-          // 2. Il tag <summary> mostrerà automaticamente il triangolo di default del browser.
-          // 3. Quando clicchi, il browser ruoterà quel triangolo verso il basso.
           return `
             <details>
                 <summary style="${s.summary}">
                    <span style="${s.summaryLabel}">${infoLabel}</span>
                 </summary>
-                <div style="margin-top: 5px; padding-left: 0;">
+                <div style="margin-top: 2px; padding-left: 0;">
                     ${contentHtml}
                 </div>
             </details>
