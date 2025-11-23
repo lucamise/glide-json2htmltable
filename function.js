@@ -9,12 +9,15 @@ window.function = function (jsonInput, unwrapDepth) {
   // Pulizia
   rawInput = rawInput.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // --- STILI CSS INLINE (Definiti come stringhe per riutilizzarli) ---
+  // --- STILI CSS INLINE ---
   var s = {
       table: "width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; font-size: 13px; border: 1px solid #dfe2e5; table-layout: auto;",
       th: "background-color: #f6f8fa; border: 1px solid #dfe2e5; padding: 12px 8px; font-weight: 600; text-align: left; color: #24292e; white-space: nowrap;",
       td: "border: 1px solid #dfe2e5; padding: 8px; vertical-align: top; color: #24292e; background-color: #fff; white-space: normal; word-wrap: break-word; min-width: 50px;",
-      summary: "cursor: pointer; color: #0366d6; font-weight: 600; outline: none; padding: 4px 0;",
+      // Summary: Rimuoviamo outline brutti, mettiamo cursore a manina
+      summary: "cursor: pointer; outline: none; padding: 4px 0; font-family: monospace; font-size: 12px;",
+      // Label dentro il summary (quella blu)
+      summaryLabel: "color: #0366d6; font-weight: 600; background: #f1f8ff; padding: 2px 6px; border-radius: 4px;",
       nullVal: "color: #a0a0a0; font-style: italic;",
       bool: "color: #005cc5; font-weight: bold;"
   };
@@ -62,7 +65,10 @@ window.function = function (jsonInput, unwrapDepth) {
 
       // Preparazione Contenuto
       var contentHtml = "";
-      // Etichetta informativa (es: "3 righe")
+      
+      // CREIAMO L'ETICHETTA PER IL BOTTONE
+      // Esempio: "3 Items" o "User Details"
+      // Usiamo termini inglesi standard o simboli perché sono più brevi su mobile
       var infoLabel = Array.isArray(obj) ? obj.length + " righe" : Object.keys(obj).length + " campi";
 
       if (Array.isArray(obj)) {
@@ -116,13 +122,13 @@ window.function = function (jsonInput, unwrapDepth) {
       if (isRoot) {
           return contentHtml;
       } else {
-          // INTERATTIVITÀ NATIVA (Senza CSS Blocks)
-          // <summary> visualizza automaticamente un triangolo ▶
-          // Aggiungiamo un testo statico chiaro.
+          // MODIFICA QUI:
+          // Non scriviamo "Apri/Chiudi". Mettiamo solo l'etichetta stilizzata tipo "Badge".
+          // Il tag <details> aggiungerà automaticamente il triangolo ▶ a sinistra.
           return `
             <details>
                 <summary style="${s.summary}">
-                   Apri / Chiudi <span style="color:#666; font-weight:normal;">(${infoLabel})</span>
+                   <span style="${s.summaryLabel}">${infoLabel}</span>
                 </summary>
                 <div style="margin-top: 8px; margin-left: 5px; border-left: 2px solid #eee; padding-left: 5px;">
                     ${contentHtml}
