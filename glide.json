@@ -1,14 +1,19 @@
 [
   {
     "kind": "column",
-    "name": "JSON to HTML Table",
-    "description": "Converts a JSON Array into a styled HTML Table.",
-    "author": "Tu",
+    "name": "JSON to HTML Table (Responsive)",
+    "description": "Converte JSON in HTML. Si adatta se mobile o desktop.",
+    "author": "",
     "params": [
       {
         "name": "jsonInput",
         "displayName": "JSON Data",
         "type": "string"
+      },
+      {
+        "name": "screenWidth",
+        "displayName": "Screen Width (Passa il valore 'Window Width')",
+        "type": "number"
       }
     ],
     "result": {
