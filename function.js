@@ -15,24 +15,21 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
   // --- STILI CSS ---
   var s = {};
 
-  // Stile Base Tabella
   s.table = "width: 100%; border-collapse: collapse; font-family: -apple-system, sans-serif; border: 1px solid #dfe2e5; table-layout: auto;";
 
-  // Variabili per gestire la densità
   var fontSize, padding;
 
   if (isMobile) {
       // MOBILE (Super Compact)
-      fontSize = "11px"; // Testo piccolo
-      padding = "3px 4px"; // Padding minimo per ridurre altezza riga
+      fontSize = "11px";
+      padding = "3px 4px"; 
   } else {
       // DESKTOP (Compact)
       fontSize = "13px";
-      padding = "5px 8px"; // Abbastanza stretto anche su desktop
+      padding = "5px 8px"; 
   }
 
-  // STILI CELLE (TH e TD)
-  // Nota: "vertical-align: top" e "text-align: left" sono forzati ovunque
+  // STILI CELLE
   var cellBase = `padding: ${padding}; border: 1px solid #dfe2e5; font-size: ${fontSize}; vertical-align: top; text-align: left;`;
 
   s.th = `${cellBase} background-color: #f6f8fa; font-weight: 700; color: #444; white-space: nowrap;`;
@@ -40,15 +37,12 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
 
   s.container = "overflow-x: auto;";
   
-  // STILI ACCORDION (Summary)
-  // padding: 2px 0 -> Riduce l'altezza della riga cliccabile
+  // STILI ACCORDION
   s.summary = "cursor: pointer; outline: none; padding: 2px 0; font-family: sans-serif; font-size: 11px; text-align: left;";
   
-  // STILE BADGE (Grigio e Vicino)
-  // margin-left: 2px -> Molto vicino alla freccina nativa
-  // background: #e0e0e0 -> Grigio neutro
-  // color: #333 -> Testo scuro
-  s.summaryLabel = "background: #e0e0e0; color: #333; font-weight: 600; padding: 1px 5px; border-radius: 3px; display: inline-block; margin-left: 2px; border: 1px solid #ccc;";
+  // MODIFICA QUI: Rimosso background, border e padding interno
+  // Ora è solo testo in grassetto grigio scuro
+  s.summaryLabel = "color: #555; font-weight: 700; margin-left: 2px;";
   
   s.nullVal = "color: #999; font-style: italic;";
   s.bool = "color: #444; font-weight: bold;";
@@ -115,7 +109,6 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
             }
             contentHtml += '</tr></thead><tbody>';
             for (var r = 0; r < obj.length; r++) {
-                // Zebra striping molto leggero
                 var bg = (r % 2 === 0) ? "#fff" : "#fcfcfc"; 
                 contentHtml += `<tr style="background-color:${bg}">`;
                 for (var c = 0; c < keys.length; c++) {
@@ -133,7 +126,6 @@ window.function = function (jsonInput, unwrapDepth, screenWidth) {
         }
       } 
       else {
-          // OGGETTO SINGOLO
           var keys = Object.keys(obj);
           if (keys.length === 0) return "{}";
           contentHtml += `<table style="${s.table}"><tbody>`;
