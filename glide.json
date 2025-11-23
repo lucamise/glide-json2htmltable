@@ -1,9 +1,9 @@
 [
   {
     "kind": "column",
-    "name": "JSON to HTML Table (Responsive)",
-    "description": "Converte JSON in HTML. Usa 'small' per vista mobile.",
-    "author": "Tu",
+    "name": "JSON to HTML Table (Advanced)",
+    "description": "Converte JSON in Tabella. Puoi saltare i livelli iniziali (Unwrap).",
+    "author": "",
     "params": [
       {
         "name": "jsonInput",
@@ -11,9 +11,9 @@
         "type": "string"
       },
       {
-        "name": "screenSize",
-        "displayName": "Screen Size (small/medium/large)",
-        "type": "string"
+        "name": "unwrapDepth",
+        "displayName": "Livelli da saltare (0 = Nessuno, 1, 2...)",
+        "type": "number"
       }
     ],
     "result": {
